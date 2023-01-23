@@ -113,7 +113,7 @@ object Scaffold : Module(
                                 }
                                 pendingBlocks.clear()
                             }
-                            LambdaMod.LOG.error("Other confirm: ${packet.blockPosition} ${packet.blockState.block}")
+                            LambdaMod.LOG.warn("[$chatName] Other confirm: ${packet.blockPosition} ${packet.blockState.block}")
                         }
                     }
                 }
@@ -164,7 +164,7 @@ object Scaffold : Module(
             pendingBlocks.values
                 .filter { it.age > timeout * 50L }
                 .forEach { pendingBlock ->
-                    LambdaMod.LOG.error("Timeout: ${pendingBlock.blockPos}")
+                    LambdaMod.LOG.warn("[$chatName] Timeout: ${pendingBlock.blockPos}")
                     pendingBlocks.remove(pendingBlock.blockPos)
                     world.setBlockState(pendingBlock.blockPos, pendingBlock.blockState)
                 }
@@ -172,7 +172,7 @@ object Scaffold : Module(
             placeInfo?.let { placeInfo ->
                 pendingBlocks[placeInfo.placedPos]?.let {
                     if (it.age < timeout * 50L) {
-                        LambdaMod.LOG.error("Age: ${it.age}")
+//                        LambdaMod.LOG.error("Age: ${it.age}")
                         return@safeListener
                     }
                 }
@@ -189,7 +189,12 @@ object Scaffold : Module(
         safeListener<OnUpdateWalkingPlayerEvent> { event ->
             if (event.phase != Phase.PRE) return@safeListener
 
-            placeInfo = getNeighbour(player.flooredPosition.down(), attempts, visibleSideCheck = visibleSideCheck)
+            placeInfo = if (mc.gameSettings.keyBindSneak.isKeyDown) {
+                player.movementInput.sneak = false
+                getNeighbour(player.flooredPosition.down().down(), attempts, visibleSideCheck = visibleSideCheck)
+            } else {
+                getNeighbour(player.flooredPosition.down(), attempts, visibleSideCheck = visibleSideCheck)
+            }
         }
     }
 
@@ -225,13 +230,11 @@ object Scaffold : Module(
     }
 
     private data class PendingBlock(
-        val timestamp: Long,
         val blockPos: BlockPos,
         val blockState: IBlockState,
-        val block: Block
+        val block: Block,
+        val timestamp: Long = System.currentTimeMillis()
     ) {
-        constructor(blockPos: BlockPos, blockState: IBlockState, block: Block) : this(System.currentTimeMillis(), blockPos, blockState, block)
-
         val age get() = System.currentTimeMillis() - timestamp
     }
 
